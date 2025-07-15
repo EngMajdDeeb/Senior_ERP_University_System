@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Schedule, Meeting, StudyPlan, RecentActivity, User, AcademicDecision
 from djoser.serializers import UserCreateSerializer, UserSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class CustomUserCreateSerializer(UserCreateSerializer):
     class Meta(UserCreateSerializer.Meta):
@@ -11,6 +12,14 @@ class CustomUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         model = User
         fields = ('id', 'username', 'email', 'first_name', 'last_name') # Add more fields if needed
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        # Add custom claims
+        token['role'] = user.role
+        return token
 
 class ScheduleSerializer(serializers.ModelSerializer):
     class Meta:
