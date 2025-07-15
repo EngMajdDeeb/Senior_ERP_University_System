@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* University ERP Design System - Academic Theme with soft blues and clean aesthetics */
+
+@layer base {
+  :root {
+    /* Academic color palette */
+    --background: 210 25% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* University primary - Deep academic blue */
+    --primary: 213 85% 45%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 213 85% 40%;
+
+    /* Secondary - Light academic blue */
+    --secondary: 210 30% 95%;
+    --secondary-foreground: 215 25% 15%;
+
+    --muted: 210 25% 96%;
+    --muted-foreground: 215 15% 55%;
+
+    /* Accent - Warm academic gold */
+    --accent: 45 85% 92%;
+    --accent-foreground: 215 25% 15%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 94%;
+    --ring: 213 85% 45%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-inter;
+  }
+
+  /* Academic theme enhancements */
+  .academic-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(213 85% 55%) 100%);
+  }
+
+  .academic-card {
+    @apply bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  .academic-card-hover {
+    @apply academic-card hover:border-primary/20 hover:-translate-y-0.5;
+  }
+
+  .academic-button {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 transition-colors duration-200;
+  }
+
+  .academic-input {
+    @apply bg-input border border-border rounded-md px-3 py-2 focus:ring-2 focus:ring-ring focus:border-transparent transition-all duration-200;
+  }
+}
