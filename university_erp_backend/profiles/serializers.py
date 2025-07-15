@@ -23,12 +23,12 @@ class MeetingSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class StudyPlanSerializer(serializers.ModelSerializer):
-    student_username = serializers.CharField(source='student.username', read_only=True)
+    teacher_username = serializers.CharField(source='teacher.username', read_only=True)
 
     class Meta:
         model = StudyPlan
         fields = '__all__'
-        read_only_fields = ['student'] # Student should be set based on the logged-in user
+        read_only_fields = ['teacher'] # Teacher should be set based on the logged-in user
 
 class RecentActivitySerializer(serializers.ModelSerializer):
     class Meta:

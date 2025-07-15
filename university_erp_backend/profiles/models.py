@@ -6,6 +6,7 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('dean', 'Dean'),
         ('coordinator', 'Coordinator'),
+        ('teacher', 'Teacher'), 
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='coordinator')
     # Custom fields if needed
@@ -71,7 +72,7 @@ class Meeting(models.Model):
 
 class StudyPlan(models.Model):
     """Monitors and manages student study plans and academic progress."""
-    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_plans')
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_plans')
 
     # Renamed from 'course_name' to 'subject_name' to match React's 'subjectName'
     subject_name = models.CharField(max_length=255)
@@ -106,7 +107,7 @@ class StudyPlan(models.Model):
         verbose_name_plural = "Study Plans"
 
     def __str__(self):
-        return f"Study Plan for {self.student.username} - {self.subject_name} ({self.submission_status})"
+        return f"Study Plan for {self.teacher.username} - {self.subject_name} ({self.submission_status})"
 
 class RecentActivity(models.Model):
     # ... (Keep your RecentActivity model as it was) ...

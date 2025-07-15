@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Schedule, Meeting, StudyPlan, RecentActivity, AcademicDecision, User
 from .serializers import ScheduleSerializer, MeetingSerializer, StudyPlanSerializer, RecentActivitySerializer, AcademicDecisionSerializer
-from .permissions import IsDean
+from .permissions import IsDean, IsTeacherOrAdminOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
@@ -26,17 +26,17 @@ class DeanMeetingViewSet(viewsets.ModelViewSet):
 class StudyPlanViewSet(viewsets.ModelViewSet):
     queryset = StudyPlan.objects.all()
     serializer_class = StudyPlanSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTeacherOrAdminOrReadOnly]
 
     def perform_create(self, serializer):
-        # Automatically set the student to the logged-in user
-        serializer.save(student=self.request.user)
+        # Automatically set the teacher to the logged-in user
+        serializer.save(teacher=self.request.user)
 
     def get_queryset(self):
         # Only show study plans for the logged-in user, or all for admin
         if self.request.user.is_staff: # or self.request.user.is_coordinator if you add that field
             return StudyPlan.objects.all()
-        return StudyPlan.objects.filter(student=self.request.user)
+        return StudyPlan.objects.filter(teacher=self.request.user)
 
 class RecentActivityViewSet(viewsets.ReadOnlyModelViewSet): # Read-only as activities are logged, not created via API
     queryset = RecentActivity.objects.all()

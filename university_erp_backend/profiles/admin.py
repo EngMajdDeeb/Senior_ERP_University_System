@@ -19,8 +19,12 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
 
+class StudyPlanAdmin(admin.ModelAdmin):
+    list_display = ('id', 'teacher', 'subject_name', 'semester', 'submission_status')
+    search_fields = ('teacher__username', 'subject_name', 'semester')
+
 admin.site.register(User, UserAdmin)
-admin.site.register(StudyPlan)
+admin.site.register(StudyPlan, StudyPlanAdmin)
 admin.site.register(Schedule)
 admin.site.register(Meeting)
 admin.site.register(RecentActivity)
