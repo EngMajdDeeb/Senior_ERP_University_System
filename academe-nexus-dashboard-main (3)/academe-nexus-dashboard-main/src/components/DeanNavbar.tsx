@@ -1,14 +1,16 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogOut, Home, UserCheck, FileCheck, Users } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { getRoleDisplayName } from "@/lib/auth";
 import universityLogo from "@/assets/university-logo.png";
 
 export default function DeanNavbar() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   const handleLogout = () => {
-    navigate("/login");
+    logout();
   };
 
   const navigationItems = [
@@ -31,7 +33,7 @@ export default function DeanNavbar() {
             />
             <div className="flex flex-col">
               <span className="font-bold text-foreground">University ERP</span>
-              <span className="text-xs text-primary font-medium">Dean Dashboard</span>
+              <span className="text-xs text-primary font-medium">{getRoleDisplayName(user?.role || 'dean')} Dashboard</span>
             </div>
           </div>
 

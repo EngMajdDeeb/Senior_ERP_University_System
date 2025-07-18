@@ -34,6 +34,8 @@ SHARED_APPS = [
     'django_tenants',
     'public_tenant',
     'profiles',
+    'jazzmin',
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -43,6 +45,7 @@ SHARED_APPS = [
     'rest_framework',
     'djoser',
     'corsheaders', 
+    
 
     
 ]
@@ -77,7 +80,7 @@ ROOT_URLCONF = 'university_erp_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],  # Make sure this is set
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -127,9 +130,9 @@ REST_FRAMEWORK = {
 
 # Djoser settings
 DJOSER = {
-    'PASSWORD_RESET_CONFIRM_URL': 'auth/password/reset/confirm/{uid}/{token}', # React frontend route
-    'USERNAME_RESET_CONFIRM_URL': 'auth/username/reset/confirm/{uid}/{token}', # React frontend route
-    'ACTIVATION_URL': 'auth/activate/{uid}/{token}', # React frontend route
+    'PASSWORD_RESET_CONFIRM_URL': 'auth/password/reset/confirm/{uid}/{token}',
+    'USERNAME_RESET_CONFIRM_URL': 'auth/username/reset/confirm/{uid}/{token}',
+    'ACTIVATION_URL': 'auth/activate/{uid}/{token}',
     'SEND_ACTIVATION_EMAIL': False, # Set to True if you want email activation
     'SEND_PASSWORD_RESET_EMAIL': True,
     'SERIALIZERS': {
@@ -141,27 +144,35 @@ DJOSER = {
         'password_reset': 'djoser.email.PasswordResetEmail',
         # 'activation': 'djoser.email.ActivationEmail', # Uncomment if SEND_ACTIVATION_EMAIL is True
     },
+    'TEMPLATES': {
+        'email': {
+            'password_reset': 'email/password_reset.html',
+        }
+    }
 }
+
+# Add this setting for the frontend domain
+FRONTEND_URL = "http://ypu.localhost:8080"
 
 # For development, allow all origins. In production, specify your React app's domain.
 #CORS_ALLOW_ALL_ORIGINS = True
 # Or, for specific origins:
 CORS_ALLOWED_ORIGINS = [
-   "http://localhost:3000", # Your React app's development server
-   "http://localhost:3000",
- ]
+   "http://localhost:8080", # Your React app's development server
+   "http://ypu.localhost:8080",
+]
 
 # ... rest of the settings ...
 
 # Email settings for password reset (example with console backend for testing)
 # ... existing code ...
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your_gmail_address@gmail.com'  # <-- Replace with your Gmail address
-EMAIL_HOST_PASSWORD = 'your_gmail_app_password'   # <-- Replace with your Gmail App Password
-DEFAULT_FROM_EMAIL = 'your_gmail_address@gmail.com'  # <-- Replace with your Gmail address
+# Looking to send emails in production? Check out our Email API/SMTP product!
+EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
+EMAIL_HOST_USER = '215d139b9f5664'
+EMAIL_HOST_PASSWORD = '15fa07abaefd71'
+EMAIL_PORT = '2525'
+#
 # ... existing code ...
 # For production, configure a real email backend like SendGrid, Mailgun, etc.
 # EMAIL_HOST = 'smtp.sendgrid.net'
@@ -204,7 +215,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+# If you want to use a custom static directory (for development)
+import os
+STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -213,3 +228,28 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 TENANT_MODEL = "public_tenant.Client"
 
 TENANT_DOMAIN_MODEL = "public_tenant.Domain"
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "YPU Admin",
+    "site_header": "YPU Administration",
+    "site_brand": "YPU",
+    "welcome_sign": "Welcome to YPU Admin Panel",
+    "site_logo": "university-logo.png",
+    "site_logo_classes": "img-circle",
+    "copyright": "YPU University",
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "order_with_respect_to": ["profiles", "auth","public_tenant"],
+    "icons": {
+    "auth": "fas fa-users-cog",
+    "profiles.user": "fas fa-user",
+    "profiles.studyplan": "fas fa-book",
+    "profiles.meeting": "fas fa-calendar-alt",
+    # ...etc
+},
+    # Hide or show apps/models
+    "hide_apps": ['public_tenant'],
+    "hide_models": ["auth.Group"],
+    # Add more settings as needed...
+}

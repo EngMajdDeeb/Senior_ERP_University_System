@@ -3,8 +3,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Calendar, Users, BookOpen, BarChart3, Clock, Bell } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useMeetings, useStudyPlans, useRecentActivities } from "@/hooks/use-api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { data: meetingsData } = useMeetings();
+  const { data: studyPlansData } = useStudyPlans();
+  const { data: recentActivitiesData } = useRecentActivities();
+
+  // Ensure data is always an array and handle different API response formats
+  const meetings = Array.isArray(meetingsData) ? meetingsData : 
+                  meetingsData?.results ? meetingsData.results : 
+                  meetingsData?.data ? meetingsData.data : [];
+  
+  const studyPlans = Array.isArray(studyPlansData) ? studyPlansData : 
+                    studyPlansData?.results ? studyPlansData.results : 
+                    studyPlansData?.data ? studyPlansData.data : [];
+  
+  const recentActivities = Array.isArray(recentActivitiesData) ? recentActivitiesData : 
+                          recentActivitiesData?.results ? recentActivitiesData.results : 
+                          recentActivitiesData?.data ? recentActivitiesData.data : [];
+
   const serviceCards = [
     {
       title: "Schedule Management",
@@ -29,9 +49,13 @@ export default function Dashboard() {
     },
   ];
 
+  const upcomingMeetings = meetings.filter((meeting: any) => 
+    new Date(meeting.date) > new Date() && meeting.status === 'upcoming'
+  );
+
   const quickStats = [
-    { label: "Upcoming Meetings", value: "3", icon: Clock },
-    { label: "Active Students", value: "1,247", icon: Users },
+    { label: "Upcoming Meetings", value: upcomingMeetings.length.toString(), icon: Clock },
+    { label: "Active Students", value: studyPlans.length.toString(), icon: Users },
     { label: "Pending Tasks", value: "12", icon: Bell },
     { label: "Completion Rate", value: "94%", icon: BarChart3 },
   ];
@@ -44,7 +68,7 @@ export default function Dashboard() {
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome, College Coordinator! 👋
+            Welcome, {user?.first_name || user?.username || 'College Coordinator'}! 👋
           </h1>
           <p className="text-muted-foreground text-lg">
             Manage your academic responsibilities efficiently with our comprehensive ERP system.
@@ -122,32 +146,28 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 bg-accent/30 rounded-lg">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">New meeting scheduled</p>
-                  <p className="text-xs text-muted-foreground">College Council Meeting - Tomorrow at 2:00 PM</p>
+              {recentActivities.length > 0 ? (
+                recentActivities.slice(0, 5).map((activity: any, index: number) => (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-accent/30 rounded-lg">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{activity.title}</p>
+                      <p className="text-xs text-muted-foreground">{activity.description}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(activity.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-start gap-3 p-3 bg-accent/30 rounded-lg">
+                  <div className="w-2 h-2 bg-gray-500 rounded-full mt-2"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">No recent activities</p>
+                    <p className="text-xs text-muted-foreground">Activities will appear here as they occur</p>
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground">5 min ago</span>
-              </div>
-              
-              <div className="flex items-start gap-3 p-3 bg-accent/30 rounded-lg">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Study plan updated</p>
-                  <p className="text-xs text-muted-foreground">Computer Science Department - Fall 2024</p>
-                </div>
-                <span className="text-xs text-muted-foreground">2 hours ago</span>
-              </div>
-              
-              <div className="flex items-start gap-3 p-3 bg-accent/30 rounded-lg">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2"></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Schedule conflict resolved</p>
-                  <p className="text-xs text-muted-foreground">Room A-101 booking updated</p>
-                </div>
-                <span className="text-xs text-muted-foreground">1 day ago</span>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>

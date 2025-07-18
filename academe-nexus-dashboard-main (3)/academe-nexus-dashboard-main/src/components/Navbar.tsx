@@ -1,15 +1,16 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { LogOut, Home, Calendar, Users, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { getRoleDisplayName } from "@/lib/auth";
 import universityLogo from "@/assets/university-logo.png";
 
 export const Navbar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
+  const { logout, user } = useAuth();
 
   const handleLogout = () => {
-    // Navigate to login page
-    navigate("/login");
+    logout();
   };
 
   const navigationItems = [
@@ -30,7 +31,10 @@ export const Navbar = () => {
               alt="University Logo" 
               className="h-10 w-auto"
             />
-            <span className="text-white font-semibold text-xl">University ERP</span>
+            <div className="flex flex-col">
+              <span className="text-white font-semibold text-xl">University ERP</span>
+              <span className="text-white/80 text-sm">{getRoleDisplayName(user?.role || 'coordinator')}</span>
+            </div>
           </Link>
 
           {/* Navigation Links */}

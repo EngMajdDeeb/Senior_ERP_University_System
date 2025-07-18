@@ -1,21 +1,24 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { getRoleDisplayName } from "@/lib/auth";
 import universityLogo from "@/assets/university-logo.png";
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!username || !password) {
@@ -27,20 +30,17 @@ export default function Login() {
       return;
     }
 
-    // Route based on username
-    if (username.toLowerCase() === "coordinator") {
+    setIsLoading(true);
+    try {
+      await login(username, password);
+    } catch (error) {
       toast({
-        title: "Login Successful",
-        description: "Welcome to University ERP, Coordinator!",
+        title: "Login Failed",
+        description: "Invalid credentials. Please try again.",
+        variant: "destructive",
       });
-      navigate("/");
-    } else {
-      // Any other username goes to Dean dashboard
-      toast({
-        title: "Login Successful",
-        description: "Welcome to University ERP, Dean!",
-      });
-      navigate("/dean");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -108,8 +108,12 @@ export default function Login() {
               </div>
 
               {/* Login Button */}
-              <Button type="submit" className="w-full academic-button">
-                Sign In
+              <Button 
+                type="submit" 
+                className="w-full academic-button"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing In..." : "Sign In"}
               </Button>
 
               {/* Forgot Password Link */}
@@ -128,7 +132,7 @@ export default function Login() {
         {/* Demo Credentials */}
         <div className="mt-6 p-4 bg-accent/50 rounded-lg">
           <p className="text-sm text-center text-muted-foreground">
-            <strong>Demo:</strong> "coordinator" → Coordinator | Any other username → Dean
+            <strong>Demo:</strong> Use your actual credentials to access the system
           </p>
         </div>
       </div>

@@ -4,74 +4,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { FileCheck, Eye, MessageSquare, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { FileCheck, Eye, MessageSquare, CheckCircle, Clock, AlertCircle, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDeanPlanApproval, useApprovePlan, useReturnPlan } from "@/hooks/use-api";
 
 interface StudyPlan {
-  id: string;
-  courseCode: string;
-  courseName: string;
-  instructor: string;
+  id: number;
+  subject_name: string;
+  instructor_name: string;
   department: string;
-  submittedAt: string;
-  submittedBy: string;
-  status: "submitted" | "approved" | "needs_revision";
-  notes?: string;
+  submitted_at: string;
+  teacher: string;
+  submission_status: "submitted" | "approved" | "needs_revision" | "not_submitted";
+  plan_content?: string;
+  teacher_username?: string; // Added for new button
 }
 
 export default function DeanPlanApproval() {
   const { toast } = useToast();
-  const [plans, setPlans] = useState<StudyPlan[]>([
-    {
-      id: "1",
-      courseCode: "CS301",
-      courseName: "Data Structures and Algorithms",
-      instructor: "Dr. Smith",
-      department: "Computer Science",
-      submittedAt: "2024-01-15T10:30:00",
-      submittedBy: "coordinator",
-      status: "submitted"
-    },
-    {
-      id: "2",
-      courseCode: "EE205",
-      courseName: "Circuit Analysis",
-      instructor: "Dr. Johnson",
-      department: "Electrical Engineering",
-      submittedAt: "2024-01-14T14:20:00",
-      submittedBy: "coordinator",
-      status: "submitted"
-    },
-    {
-      id: "3",
-      courseCode: "ME401",
-      courseName: "Thermodynamics",
-      instructor: "Dr. Brown",
-      department: "Mechanical Engineering",
-      submittedAt: "2024-01-13T09:15:00",
-      submittedBy: "coordinator",
-      status: "submitted"
-    },
-    {
-      id: "4",
-      courseCode: "CS202",
-      courseName: "Database Systems",
-      instructor: "Dr. Davis",
-      department: "Computer Science",
-      submittedAt: "2024-01-12T16:45:00",
-      submittedBy: "coordinator",
-      status: "approved"
-    }
-  ]);
+  const { data, isLoading, error } = useDeanPlanApproval();
+  const plans: StudyPlan[] = Array.isArray((data as any)?.results) ? (data as any).results : [];
+  const approvePlan = useApprovePlan();
+  const returnPlan = useReturnPlan();
 
   const [selectedPlan, setSelectedPlan] = useState<StudyPlan | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [notes, setNotes] = useState("");
 
-  const submittedPlans = plans.filter(plan => plan.status === "submitted");
+  const submittedPlans = plans.filter(plan => plan.submission_status === "submitted");
 
   const handleViewPlan = (plan: StudyPlan) => {
     setSelectedPlan(plan);
@@ -80,44 +43,28 @@ export default function DeanPlanApproval() {
 
   const handleAddNotes = (plan: StudyPlan) => {
     setSelectedPlan(plan);
-    setNotes(plan.notes || "");
+    setNotes(plan.plan_content || "");
     setShowNotesModal(true);
   };
 
   const handleSaveNotes = () => {
     if (!selectedPlan) return;
-
-    setPlans(prev => prev.map(plan =>
-      plan.id === selectedPlan.id
-        ? { ...plan, status: "needs_revision" as const, notes }
-        : plan
-    ));
-
-    toast({
-      title: "Notes Added",
-      description: `Study plan returned with revision notes. Coordinator and department head notified.`,
-    });
-
+    returnPlan.mutate({ id: selectedPlan.id, data: { notes } });
     setShowNotesModal(false);
     setNotes("");
     setSelectedPlan(null);
   };
 
   const handleApprovePlan = (plan: StudyPlan) => {
-    setPlans(prev => prev.map(p =>
-      p.id === plan.id
-        ? { 
-            ...p, 
-            status: "approved" as const,
-            notes: `Approved by Dean on ${new Date().toLocaleDateString()}`
-          }
-        : p
-    ));
+    approvePlan.mutate(plan.id);
+  };
 
+  const handleSendReminder = (plan: StudyPlan) => {
     toast({
-      title: "Plan Approved",
-      description: `Study plan approved successfully. Coordinator and department head notified.`,
+      title: "Reminder Sent",
+      description: `Reminder sent to ${plan.instructor_name || plan.teacher_username || "responsible"} for ${plan.subject_name} study plan submission.`,
     });
+    // Optionally, call a backend endpoint to actually send the reminder email/notification.
   };
 
   const getStatusBadge = (status: string) => {
@@ -133,16 +80,12 @@ export default function DeanPlanApproval() {
     }
   };
 
-  const mockSchedule = [
-    { time: "08:00 - 09:30", monday: "CS301 - Lab A", tuesday: "", wednesday: "CS301 - Room 101", thursday: "", friday: "CS301 - Lab A" },
-    { time: "09:45 - 11:15", monday: "", tuesday: "CS301 - Room 101", wednesday: "", thursday: "CS301 - Room 101", friday: "" },
-    { time: "11:30 - 13:00", monday: "Office Hours", tuesday: "", wednesday: "Office Hours", thursday: "", friday: "Office Hours" },
-  ];
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading study plans.</div>;
 
   return (
     <div className="min-h-screen bg-background">
       <DeanNavbar />
-      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex items-center space-x-3 mb-6">
           <FileCheck className="h-8 w-8 text-blue-600" />
@@ -151,7 +94,6 @@ export default function DeanPlanApproval() {
             <p className="text-muted-foreground">Review and approve submitted study plans from coordinators</p>
           </div>
         </div>
-
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <Card className="academic-card">
@@ -165,32 +107,29 @@ export default function DeanPlanApproval() {
               </div>
             </CardContent>
           </Card>
-
           <Card className="academic-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Approved</p>
-                  <p className="text-2xl font-bold text-green-600">{plans.filter(p => p.status === "approved").length}</p>
+                  <p className="text-2xl font-bold text-green-600">{plans.filter((p: StudyPlan) => p.submission_status === "approved").length}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
-
           <Card className="academic-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Need Revision</p>
-                  <p className="text-2xl font-bold text-orange-600">{plans.filter(p => p.status === "needs_revision").length}</p>
+                  <p className="text-2xl font-bold text-orange-600">{plans.filter((p: StudyPlan) => p.submission_status === "needs_revision").length}</p>
                 </div>
                 <AlertCircle className="h-8 w-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
         </div>
-
         {/* Plans List */}
         <Card className="academic-card">
           <CardHeader>
@@ -202,7 +141,7 @@ export default function DeanPlanApproval() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-3">Course</th>
+                    <th className="text-left p-3">Subject</th>
                     <th className="text-left p-3">Instructor</th>
                     <th className="text-left p-3">Department</th>
                     <th className="text-left p-3">Submitted</th>
@@ -211,20 +150,19 @@ export default function DeanPlanApproval() {
                   </tr>
                 </thead>
                 <tbody>
-                  {plans.map((plan) => (
+                  {plans.map((plan: StudyPlan) => (
                     <tr key={plan.id} className="border-b hover:bg-accent/50">
                       <td className="p-3">
                         <div>
-                          <p className="font-medium text-foreground">{plan.courseCode}</p>
-                          <p className="text-sm text-muted-foreground">{plan.courseName}</p>
+                          <p className="font-medium text-foreground">{plan.subject_name}</p>
                         </div>
                       </td>
-                      <td className="p-3 text-muted-foreground">{plan.instructor}</td>
+                      <td className="p-3 text-muted-foreground">{plan.instructor_name}</td>
                       <td className="p-3 text-sm">{plan.department}</td>
                       <td className="p-3 text-sm text-muted-foreground">
-                        {new Date(plan.submittedAt).toLocaleDateString()}
+                        {plan.submitted_at ? new Date(plan.submitted_at).toLocaleDateString() : "-"}
                       </td>
-                      <td className="p-3">{getStatusBadge(plan.status)}</td>
+                      <td className="p-3">{getStatusBadge(plan.submission_status)}</td>
                       <td className="p-3">
                         <div className="flex space-x-2">
                           <Button 
@@ -235,26 +173,36 @@ export default function DeanPlanApproval() {
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
-                          
-                          {plan.status === "submitted" && (
-                            <>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleAddNotes(plan)}
-                              >
-                                <MessageSquare className="h-4 w-4 mr-1" />
-                                Notes
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleApprovePlan(plan)}
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Approve
-                              </Button>
-                            </>
+                          {(plan.submission_status === "submitted" || plan.submission_status === "pending_review") && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleApprovePlan(plan)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                            >
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              Approve
+                            </Button>
+                          )}
+                          {plan.submission_status === "submitted" && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleAddNotes(plan)}
+                            >
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              Notes
+                            </Button>
+                          )}
+                          {plan.submission_status === "not_submitted" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendReminder(plan)}
+                              className="text-yellow-700 border-yellow-500"
+                            >
+                              <Bell className="h-4 w-4 mr-1" />
+                              Send Reminder
+                            </Button>
                           )}
                         </div>
                       </td>
@@ -265,68 +213,42 @@ export default function DeanPlanApproval() {
             </div>
           </CardContent>
         </Card>
-
         {/* View Plan Modal */}
         <Dialog open={showViewModal} onOpenChange={setShowViewModal}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>Study Plan Details</DialogTitle>
               <DialogDescription>
-                {selectedPlan?.courseCode} - {selectedPlan?.courseName}
+                {selectedPlan?.subject_name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Instructor</Label>
-                  <p className="text-foreground">{selectedPlan?.instructor}</p>
+                  <p className="text-foreground">{selectedPlan?.instructor_name}</p>
                 </div>
                 <div>
                   <Label>Department</Label>
                   <p className="text-foreground">{selectedPlan?.department}</p>
                 </div>
               </div>
-              
               <div>
-                <Label>Schedule</Label>
-                <div className="mt-2 overflow-x-auto">
-                  <table className="w-full border rounded-lg">
-                    <thead>
-                      <tr className="bg-accent">
-                        <th className="border p-2 text-left">Time</th>
-                        <th className="border p-2 text-left">Monday</th>
-                        <th className="border p-2 text-left">Tuesday</th>
-                        <th className="border p-2 text-left">Wednesday</th>
-                        <th className="border p-2 text-left">Thursday</th>
-                        <th className="border p-2 text-left">Friday</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mockSchedule.map((slot, index) => (
-                        <tr key={index}>
-                          <td className="border p-2 font-medium">{slot.time}</td>
-                          <td className="border p-2">{slot.monday}</td>
-                          <td className="border p-2">{slot.tuesday}</td>
-                          <td className="border p-2">{slot.wednesday}</td>
-                          <td className="border p-2">{slot.thursday}</td>
-                          <td className="border p-2">{slot.friday}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <Label>Plan Content</Label>
+                <div className="mt-2">
+                  <p className="text-foreground whitespace-pre-line">{selectedPlan?.plan_content || "No content provided."}</p>
                 </div>
               </div>
             </div>
           </DialogContent>
         </Dialog>
-
         {/* Add Notes Modal */}
         <Dialog open={showNotesModal} onOpenChange={setShowNotesModal}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Revision Notes</DialogTitle>
               <DialogDescription>
-                Provide feedback and revision notes for {selectedPlan?.courseCode}
+                Provide feedback and revision notes for {selectedPlan?.subject_name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

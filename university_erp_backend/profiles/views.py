@@ -7,6 +7,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from django import forms
+from .models import StudyPlan, User
+from django.contrib import admin
 
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = Schedule.objects.all()
@@ -18,10 +21,42 @@ class MeetingViewSet(viewsets.ModelViewSet):
     serializer_class = MeetingSerializer
     permission_classes = [IsAuthenticated]
 
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        data = request.data.copy()
+        # If signedByDean is being set to true and signature is not set, set signature to dean's name
+        if str(data.get('signedByDean', '')).lower() == 'true' and not data.get('signature'):
+            if hasattr(request.user, 'first_name') and hasattr(request.user, 'last_name'):
+                dean_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+            else:
+                dean_name = request.user.username
+            data['signature'] = dean_name
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
 class DeanMeetingViewSet(viewsets.ModelViewSet):
     queryset = Meeting.objects.all()
     serializer_class = MeetingSerializer
     permission_classes = [IsDean]
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        data = request.data.copy()
+        # If signedByDean is being set to true and signature is not set, set signature to dean's name
+        if str(data.get('signedByDean', '')).lower() == 'true' and not data.get('signature'):
+            if hasattr(request.user, 'first_name') and hasattr(request.user, 'last_name'):
+                dean_name = f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username
+            else:
+                dean_name = request.user.username
+            data['signature'] = dean_name
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 class StudyPlanViewSet(viewsets.ModelViewSet):
     queryset = StudyPlan.objects.all()
@@ -55,26 +90,34 @@ class DeanAcademicDecisionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='students')
     def students_needing_attention(self, request):
-        # Example: filter students with GPA < 2.0 or with previous warnings
+        # Filter students with GPA < threshold (e.g., 2.0, 2.5, 3.0)
         gpa_threshold = float(request.query_params.get('gpa', 2.0))
         warnings_count = request.query_params.get('warnings', None)
         department = request.query_params.get('department', None)
-        students = User.objects.filter(is_staff=False)
-        if department:
-            students = students.filter(groups__name=department)
+        students = User.objects.filter(is_staff=False, role='student')
         filtered = []
         for student in students:
-            # Assume GPA and warnings are stored in profile or related model; here, mock logic
-            gpa = getattr(student, 'gpa', 1.8)  # Replace with real field
+            print(f"User: {student.username}, role: {student.role}, is_staff: {student.is_staff}")
+            student_profile = getattr(student, 'student_profile', None)
+            if student_profile:
+                print(f"  GPA: {student_profile.gpa}, Department: {student_profile.department}")
+            else:
+                print("  No student profile found!")
+            gpa = student_profile.gpa if student_profile and student_profile.gpa is not None else 0.0
+            dept = student_profile.department if student_profile and student_profile.department else 'N/A'
             prev_warnings = AcademicDecision.objects.filter(student=student).count()
-            if gpa < gpa_threshold and (warnings_count is None or prev_warnings == int(warnings_count)):
+            meets_gpa = gpa < gpa_threshold
+            meets_warnings = warnings_count is None or prev_warnings == int(warnings_count)
+            meets_department = department is None or dept == department
+            print(f"  meets_gpa: {meets_gpa}, meets_warnings: {meets_warnings}, meets_department: {meets_department}")
+            if meets_gpa and meets_warnings and meets_department:
                 filtered.append({
                     'id': student.id,
                     'fullName': student.get_full_name(),
-                    'studentId': student.username,
+                    'studentId': student.id,  # Use numeric ID
                     'gpa': gpa,
                     'previousWarnings': prev_warnings,
-                    'department': department or 'N/A',
+                    'department': dept,
                 })
         return Response(filtered)
 

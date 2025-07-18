@@ -20,6 +20,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+   #
     path('api/', include('profiles.urls')),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')), # For JWT authentication via Djoser

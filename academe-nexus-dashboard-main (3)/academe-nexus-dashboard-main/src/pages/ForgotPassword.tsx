@@ -13,9 +13,9 @@ export default function ForgotPassword() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email) {
       toast({
         title: "Error",
@@ -36,12 +36,34 @@ export default function ForgotPassword() {
       return;
     }
 
-    // Simulate sending email
-    setIsSubmitted(true);
-    toast({
-      title: "Success",
-      description: "Password reset instructions sent to your email",
-    });
+    try {
+      const response = await fetch("http://ypu.localhost:8000/auth/users/reset_password/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setIsSubmitted(true);
+        toast({
+          title: "Success",
+          description: "Password reset instructions sent to your email",
+        });
+      } else {
+        const data = await response.json();
+        toast({
+          title: "Error",
+          description: data?.email?.[0] || "Failed to send reset email",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Network error. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isSubmitted) {

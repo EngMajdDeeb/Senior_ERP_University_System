@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Clock, MapPin, Plus, Check, X, Edit, Trash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSchedules, useCreateSchedule, useUpdateSchedule, useDeleteSchedule } from "@/hooks/use-api";
 
 interface Schedule {
   id: number;
-  courseName: string;
+  course_name: string;
   instructor: string;
   room: string;
   day: string;
@@ -19,40 +20,34 @@ interface Schedule {
 
 export default function Schedule() {
   const { toast } = useToast();
-  const [schedules, setSchedules] = useState<Schedule[]>([
-    {
-      id: 1,
-      courseName: "Computer Science Lecture",
-      instructor: "Dr. Smith",
-      room: "Room A-101",
-      day: "Monday",
-      startTime: "09:00",
-      endTime: "10:30",
-    },
-    {
-      id: 2,
-      courseName: "Mathematics Lab",
-      instructor: "Prof. Johnson",
-      room: "Lab B-205",
-      day: "Monday",
-      startTime: "11:00",
-      endTime: "12:30",
-    },
-    {
-      id: 3,
-      courseName: "Physics Seminar",
-      instructor: "Dr. Brown",
-      room: "Hall C-301",
-      day: "Tuesday",
-      startTime: "14:00",
-      endTime: "15:30",
-    },
-  ]);
+  const { data: schedulesData, isLoading } = useSchedules();
+  const createScheduleMutation = useCreateSchedule();
+  const updateScheduleMutation = useUpdateSchedule();
+  const deleteScheduleMutation = useDeleteSchedule();
+
+  const mapFromBackendSchedule = (schedule: any): Schedule => ({
+    id: schedule.id,
+    course_name: schedule.course_name,
+    instructor: schedule.instructor,
+    room: schedule.room,
+    day: schedule.day,
+    startTime: schedule.start_time,
+    endTime: schedule.end_time,
+  });
+
+  // Ensure data is always an array and handle different API response formats
+  const schedules = Array.isArray(schedulesData)
+    ? schedulesData.map(mapFromBackendSchedule)
+    : (schedulesData as any)?.results
+      ? (schedulesData as any).results.map(mapFromBackendSchedule)
+      : (schedulesData as any)?.data
+        ? (schedulesData as any).data.map(mapFromBackendSchedule)
+        : [];
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newSchedule, setNewSchedule] = useState<Partial<Schedule>>({
-    courseName: "",
+    course_name: "",
     instructor: "",
     room: "",
     day: "",
@@ -60,13 +55,13 @@ export default function Schedule() {
     endTime: "",
   });
 
-  const courses = ["Computer Science Lecture", "Mathematics Lab", "Physics Seminar", "Chemistry Lab", "Biology Workshop"];
-  const instructors = ["Dr. Smith", "Prof. Johnson", "Dr. Brown", "Prof. Wilson", "Dr. Davis"];
-  const rooms = ["Room A-101", "Lab B-205", "Hall C-301", "Room A-102", "Lab B-206"];
+  const courses = Array.from(new Set(schedules.map(s => s.course_name))) as string[];
+  const instructors = Array.from(new Set(schedules.map(s => s.instructor))) as string[];
+  const rooms = Array.from(new Set(schedules.map(s => s.room))) as string[];
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
   const checkConflict = (schedule: Partial<Schedule>, excludeId?: number) => {
-    return schedules.some(s => {
+    return schedules.some((s: any) => {
       if (excludeId && s.id === excludeId) return false;
       return s.day === schedule.day && 
              s.room === schedule.room &&
@@ -75,6 +70,15 @@ export default function Schedule() {
               (schedule.startTime! <= s.startTime && schedule.endTime! >= s.endTime));
     });
   };
+
+  const mapToBackendSchedule = (schedule: Partial<Schedule>) => ({
+    course_name: schedule.course_name,
+    instructor: schedule.instructor,
+    room: schedule.room,
+    day: schedule.day,
+    start_time: schedule.startTime,
+    end_time: schedule.endTime,
+  });
 
   const handleAddSchedule = () => {
     if (Object.values(newSchedule).some(v => !v)) {
@@ -95,10 +99,9 @@ export default function Schedule() {
       return;
     }
 
-    const id = Math.max(...schedules.map(s => s.id)) + 1;
-    setSchedules([...schedules, { ...newSchedule, id } as Schedule]);
+    createScheduleMutation.mutate(mapToBackendSchedule(newSchedule));
     setNewSchedule({
-      courseName: "",
+      course_name: "",
       instructor: "",
       room: "",
       day: "",
@@ -106,10 +109,6 @@ export default function Schedule() {
       endTime: "",
     });
     setIsAdding(false);
-    toast({
-      title: "Success",
-      description: "Schedule added successfully"
-    });
   };
 
   const handleUpdateSchedule = (id: number, updatedSchedule: Partial<Schedule>) => {
@@ -122,21 +121,29 @@ export default function Schedule() {
       return;
     }
 
-    setSchedules(schedules.map(s => s.id === id ? { ...s, ...updatedSchedule } : s));
+    updateScheduleMutation.mutate({ id, data: mapToBackendSchedule(updatedSchedule) });
     setEditingId(null);
-    toast({
-      title: "Success",
-      description: "Schedule updated successfully"
-    });
   };
 
   const handleDeleteSchedule = (id: number) => {
-    setSchedules(schedules.filter(s => s.id !== id));
-    toast({
-      title: "Success",
-      description: "Schedule deleted successfully"
-    });
+    deleteScheduleMutation.mutate(id);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading schedules...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -158,23 +165,63 @@ export default function Schedule() {
           </Button>
         </div>
 
-        <div className="grid gap-6">
-          {schedules.map((schedule) => (
+        {/* Table Header and Schedules Table */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border rounded-lg">
+            <thead>
+              <tr className="bg-accent">
+                <th className="p-3 text-left">Course Name</th>
+                <th className="p-3 text-left">Instructor</th>
+                <th className="p-3 text-left">Room</th>
+                <th className="p-3 text-left">Day</th>
+                <th className="p-3 text-left">Start Time</th>
+                <th className="p-3 text-left">End Time</th>
+                <th className="p-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedules.map((schedule) => (
+                <tr key={schedule.id} className="border-b hover:bg-accent/50">
+                  <td className="p-3 font-medium">{schedule.course_name}</td>
+                  <td className="p-3">{schedule.instructor}</td>
+                  <td className="p-3">{schedule.room}</td>
+                  <td className="p-3">{schedule.day}</td>
+                  <td className="p-3">{schedule.startTime}</td>
+                  <td className="p-3">{schedule.endTime}</td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setEditingId(schedule.id)}>
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleDeleteSchedule(schedule.id)}>
+                        <Trash className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {/* Add/Edit Schedule Cards remain below for inline editing/adding */}
+        <div className="grid gap-6 mt-6">
+          {editingId !== null && (
             <ScheduleCard 
-              key={schedule.id} 
-              schedule={schedule} 
-              isEditing={editingId === schedule.id}
-              onEdit={() => setEditingId(schedule.id)}
-              onSave={(updatedSchedule) => handleUpdateSchedule(schedule.id, updatedSchedule)}
+              key={editingId} 
+              schedule={schedules.find(s => s.id === editingId)!}
+              isEditing={true}
+              onEdit={() => {}}
+              onSave={(updatedSchedule) => handleUpdateSchedule(editingId, updatedSchedule)}
               onCancel={() => setEditingId(null)}
-              onDelete={() => handleDeleteSchedule(schedule.id)}
+              onDelete={() => handleDeleteSchedule(editingId)}
               courses={courses}
               instructors={instructors}
               rooms={rooms}
               days={days}
             />
-          ))}
-          
+          )}
           {isAdding && (
             <AddScheduleCard
               schedule={newSchedule}
@@ -183,7 +230,7 @@ export default function Schedule() {
               onCancel={() => {
                 setIsAdding(false);
                 setNewSchedule({
-                  courseName: "",
+                  course_name: "",
                   instructor: "",
                   room: "",
                   day: "",
@@ -230,7 +277,7 @@ function ScheduleCard({ schedule, isEditing, onEdit, onSave, onCancel, onDelete,
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Course Name</label>
-              <Select value={editData.courseName} onValueChange={(value) => setEditData({...editData, courseName: value})}>
+              <Select value={editData.course_name} onValueChange={(value) => setEditData({...editData, course_name: value})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -317,7 +364,7 @@ function ScheduleCard({ schedule, isEditing, onEdit, onSave, onCancel, onDelete,
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-xl">{schedule.courseName}</CardTitle>
+            <CardTitle className="text-xl">{schedule.course_name}</CardTitle>
             <CardDescription>
               {schedule.instructor}
             </CardDescription>
@@ -373,7 +420,7 @@ function AddScheduleCard({ schedule, onUpdate, onSave, onCancel, courses, instru
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium mb-2 block">Course Name</label>
-            <Select value={schedule.courseName} onValueChange={(value) => onUpdate({...schedule, courseName: value})}>
+            <Select value={schedule.course_name} onValueChange={(value) => onUpdate({...schedule, course_name: value})}>
               <SelectTrigger>
                 <SelectValue placeholder="Select course" />
               </SelectTrigger>

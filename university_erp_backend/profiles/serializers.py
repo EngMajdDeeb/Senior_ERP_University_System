@@ -11,7 +11,7 @@ class CustomUserCreateSerializer(UserCreateSerializer):
 class CustomUserSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name') # Add more fields if needed
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role') # Include role field
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -33,11 +33,15 @@ class MeetingSerializer(serializers.ModelSerializer):
 
 class StudyPlanSerializer(serializers.ModelSerializer):
     teacher_username = serializers.CharField(source='teacher.username', read_only=True)
+    department = serializers.SerializerMethodField()
 
     class Meta:
         model = StudyPlan
         fields = '__all__'
         read_only_fields = ['teacher'] # Teacher should be set based on the logged-in user
+
+    def get_department(self, obj):
+        return obj.teacher.department if obj.teacher and hasattr(obj.teacher, 'department') else None
 
 class RecentActivitySerializer(serializers.ModelSerializer):
     class Meta:

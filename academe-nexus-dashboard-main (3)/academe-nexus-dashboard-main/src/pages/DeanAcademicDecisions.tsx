@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Filter, FileWarning } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDeanStudentsAttention, useIssueDeanDecision } from "@/hooks/use-api";
 
 interface Student {
   id: string;
@@ -24,89 +25,70 @@ interface Student {
 
 export default function DeanAcademicDecisions() {
   const { toast } = useToast();
-  const [students, setStudents] = useState<Student[]>([
-    { id: "1", fullName: "John Smith", studentId: "CS2021001", gpa: 1.8, previousWarnings: 0, department: "Computer Science", selected: false },
-    { id: "2", fullName: "Sarah Johnson", studentId: "EE2021002", gpa: 1.5, previousWarnings: 1, department: "Electrical Engineering", selected: false },
-    { id: "3", fullName: "Mike Davis", studentId: "ME2021003", gpa: 1.9, previousWarnings: 0, department: "Mechanical Engineering", selected: false },
-    { id: "4", fullName: "Emily Brown", studentId: "CS2021004", gpa: 1.7, previousWarnings: 2, department: "Computer Science", selected: false },
-    { id: "5", fullName: "David Wilson", studentId: "CE2021005", gpa: 1.6, previousWarnings: 1, department: "Civil Engineering", selected: false },
-    { id: "6", fullName: "Lisa Anderson", studentId: "EE2021006", gpa: 1.4, previousWarnings: 0, department: "Electrical Engineering", selected: false },
-  ]);
+  const { data: students, isLoading, error } = useDeanStudentsAttention();
+  const issueDecision = useIssueDeanDecision();
 
   const [filters, setFilters] = useState({
     gpaThreshold: "2.0",
     warningsCount: "all",
     department: "all"
   });
-
+  const [selected, setSelected] = useState<{ [id: string]: boolean }>({});
   const [decisionType, setDecisionType] = useState("");
   const [deanPassword, setDeanPassword] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const departments = ["Computer Science", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering"];
+  const departments = [
+    ...new Set((students || []).map((s: any) => s.department).filter(Boolean))
+  ];
 
-  const filteredStudents = students.filter(student => {
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error loading students.</div>;
+
+  const filteredStudents = (students || []).filter(student => {
     const meetsGPA = student.gpa < parseFloat(filters.gpaThreshold);
     const meetsWarnings = filters.warningsCount === "all" || student.previousWarnings === parseInt(filters.warningsCount);
     const meetsDepartment = filters.department === "all" || student.department === filters.department;
     return meetsGPA && meetsWarnings && meetsDepartment;
   });
 
-  const selectedStudents = filteredStudents.filter(student => student.selected);
+  const selectedStudents = filteredStudents.filter(student => selected[student.id]);
 
   const handleStudentSelect = (studentId: string, checked: boolean) => {
-    setStudents(prev => prev.map(student => 
-      student.id === studentId ? { ...student, selected: checked } : student
-    ));
+    setSelected(prev => ({ ...prev, [studentId]: checked }));
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setStudents(prev => prev.map(student => ({ ...student, selected: checked })));
+    const newSelected: { [id: string]: boolean } = {};
+    filteredStudents.forEach(s => { newSelected[s.id] = checked; });
+    setSelected(newSelected);
   };
 
   const handleConfirmDecision = () => {
     if (!decisionType) {
-      toast({
-        title: "Error",
-        description: "Please select a decision type",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please select a decision type", variant: "destructive" });
       return;
     }
-
     if (selectedStudents.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one student",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please select at least one student", variant: "destructive" });
       return;
     }
-
     setShowConfirmModal(true);
   };
 
   const handlePasswordConfirm = () => {
     if (!deanPassword) {
-      toast({
-        title: "Error",
-        description: "Please enter your password to confirm",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please enter your password to confirm", variant: "destructive" });
       return;
     }
-
-    // Simulate decision processing
-    const decisionText = decisionType === "first-warning" ? "First Warning" : 
-                        decisionType === "second-warning" ? "Second Warning" : "Academic Dismissal";
-
+    selectedStudents.forEach(student => {
+      issueDecision.mutate({ student: student.id, decision_type: decisionType, notes: "" });
+    });
     toast({
       title: "Decision Issued Successfully",
-      description: `${decisionText} issued for ${selectedStudents.length} students. Email notifications sent.`,
+      description: `${decisionType} issued for ${selectedStudents.length} students. Email notifications sent.`,
     });
-
-    // Reset form
-    setStudents(prev => prev.map(student => ({ ...student, selected: false })));
+    setSelected({});
     setDecisionType("");
     setDeanPassword("");
     setShowConfirmModal(false);
@@ -204,7 +186,7 @@ export default function DeanAcademicDecisions() {
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  checked={filteredStudents.length > 0 && filteredStudents.every(s => s.selected)}
+                  checked={filteredStudents.length > 0 && filteredStudents.every(s => selected[s.id])}
                   onCheckedChange={handleSelectAll}
                 />
                 <Label>Select All</Label>
@@ -229,7 +211,7 @@ export default function DeanAcademicDecisions() {
                     <tr key={student.id} className="border-b hover:bg-accent/50">
                       <td className="p-3">
                         <Checkbox
-                          checked={student.selected}
+                          checked={selected[student.id]}
                           onCheckedChange={(checked) => handleStudentSelect(student.id, checked as boolean)}
                         />
                       </td>

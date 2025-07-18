@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
@@ -14,6 +16,7 @@ import DeanAcademicDecisions from "./pages/DeanAcademicDecisions";
 import DeanPlanApproval from "./pages/DeanPlanApproval";
 import DeanMeetings from "./pages/DeanMeetings";
 import NotFound from "./pages/NotFound";
+import ResetPasswordConfirm from "./pages/ResetPasswordConfirm";
 
 const queryClient = new QueryClient();
 
@@ -23,24 +26,59 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          
-          {/* Coordinator Routes */}
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/schedule" element={<Schedule />} />
-          <Route path="/meetings" element={<Meetings />} />
-          <Route path="/study-plans" element={<StudyPlans />} />
-          
-          {/* Dean Routes */}
-          <Route path="/dean" element={<DeanDashboard />} />
-          <Route path="/dean/academic-decisions" element={<DeanAcademicDecisions />} />
-          <Route path="/dean/plan-approval" element={<DeanPlanApproval />} />
-          <Route path="/dean/meetings" element={<DeanMeetings />} />
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/password/reset/confirm/:uid/:token" element={<ResetPasswordConfirm />} />
+            
+            {/* Coordinator Routes */}
+            <Route path="/" element={
+              <ProtectedRoute requiredRole="coordinator">
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/schedule" element={
+              <ProtectedRoute requiredRole="coordinator">
+                <Schedule />
+              </ProtectedRoute>
+            } />
+            <Route path="/meetings" element={
+              <ProtectedRoute requiredRole="coordinator">
+                <Meetings />
+              </ProtectedRoute>
+            } />
+            <Route path="/study-plans" element={
+              <ProtectedRoute requiredRole="coordinator">
+                <StudyPlans />
+              </ProtectedRoute>
+            } />
+            
+            {/* Dean Routes */}
+            <Route path="/dean" element={
+              <ProtectedRoute requiredRole="dean">
+                <DeanDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dean/academic-decisions" element={
+              <ProtectedRoute requiredRole="dean">
+                <DeanAcademicDecisions />
+              </ProtectedRoute>
+            } />
+            <Route path="/dean/plan-approval" element={
+              <ProtectedRoute requiredRole="dean">
+                <DeanPlanApproval />
+              </ProtectedRoute>
+            } />
+            <Route path="/dean/meetings" element={
+              <ProtectedRoute requiredRole="dean">
+                <DeanMeetings />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

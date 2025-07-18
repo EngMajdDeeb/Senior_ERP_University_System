@@ -3,13 +3,44 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { UserCheck, FileCheck, Users, AlertTriangle, Calendar, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useDeanDashboardStats, useDeanDashboardActivity, useDeanStudentsAttention, useDeanPlanApproval, useDeanMeetings } from "@/hooks/use-api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function DeanDashboard() {
+  const { user } = useAuth();
+  const { data: dashboardStats, isLoading: statsLoading } = useDeanDashboardStats();
+  const { data: recentActivityData, isLoading: activityLoading } = useDeanDashboardActivity();
+  const { data: studentsAttentionData } = useDeanStudentsAttention();
+  const { data: planApprovalsData } = useDeanPlanApproval();
+  const { data: deanMeetingsData } = useDeanMeetings();
+
+  // Ensure data is always an array and handle different API response formats
+  const recentActivity = Array.isArray(recentActivityData) ? recentActivityData : 
+                        recentActivityData?.results ? recentActivityData.results : 
+                        recentActivityData?.data ? recentActivityData.data : [];
+  
+  const studentsAttention = Array.isArray(studentsAttentionData) ? studentsAttentionData : 
+                           studentsAttentionData?.results ? studentsAttentionData.results : 
+                           studentsAttentionData?.data ? studentsAttentionData.data : [];
+  
+  const planApprovals = Array.isArray(planApprovalsData) ? planApprovalsData : 
+                       planApprovalsData?.results ? planApprovalsData.results : 
+                       planApprovalsData?.data ? planApprovalsData.data : [];
+  
+  const deanMeetings = Array.isArray(deanMeetingsData) ? deanMeetingsData : 
+                      deanMeetingsData?.results ? deanMeetingsData.results : 
+                      deanMeetingsData?.data ? deanMeetingsData.data : [];
+
+  const pendingDecisions = studentsAttention.length;
+  const plansToReview = planApprovals.filter((plan: any) => plan.status === 'pending').length;
+  const meetingsToSign = deanMeetings.filter((meeting: any) => meeting.status === 'completed' && !meeting.signedByDean).length;
+  const approvedPlans = planApprovals.filter((plan: any) => plan.status === 'approved').length;
+
   const quickStats = [
-    { label: "Pending Decisions", value: "8", icon: AlertTriangle, color: "text-orange-600" },
-    { label: "Plans to Review", value: "12", icon: FileCheck, color: "text-blue-600" },
-    { label: "Meetings to Sign", value: "3", icon: Calendar, color: "text-purple-600" },
-    { label: "Approved Plans", value: "45", icon: CheckCircle, color: "text-green-600" },
+    { label: "Pending Decisions", value: pendingDecisions.toString(), icon: AlertTriangle, color: "text-orange-600" },
+    { label: "Plans to Review", value: plansToReview.toString(), icon: FileCheck, color: "text-blue-600" },
+    { label: "Meetings to Sign", value: meetingsToSign.toString(), icon: Calendar, color: "text-purple-600" },
+    { label: "Approved Plans", value: approvedPlans.toString(), icon: CheckCircle, color: "text-green-600" },
   ];
 
   const serviceCards = [
@@ -19,7 +50,7 @@ export default function DeanDashboard() {
       icon: UserCheck,
       href: "/dean/academic-decisions",
       color: "border-red-200 hover:border-red-300",
-      badge: "8 Pending"
+      badge: `${pendingDecisions} Pending`
     },
     {
       title: "Study Plan Approval",
@@ -27,7 +58,7 @@ export default function DeanDashboard() {
       icon: FileCheck,
       href: "/dean/plan-approval",
       color: "border-blue-200 hover:border-blue-300",
-      badge: "12 To Review"
+      badge: `${plansToReview} To Review`
     },
     {
       title: "Meeting Signatures",
@@ -35,7 +66,7 @@ export default function DeanDashboard() {
       icon: Users,
       href: "/dean/meetings",
       color: "border-purple-200 hover:border-purple-300",
-      badge: "3 To Sign"
+      badge: `${meetingsToSign} To Sign`
     },
   ];
 
@@ -46,7 +77,9 @@ export default function DeanDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome, Dean!</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Welcome, {user?.first_name || user?.username || 'Dean'}!
+          </h1>
           <p className="text-muted-foreground">Manage academic decisions, approve study plans, and oversee university operations.</p>
         </div>
 
@@ -110,27 +143,27 @@ export default function DeanDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center space-x-3 p-3 bg-accent/50 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Study Plan Approved</p>
-                  <p className="text-xs text-muted-foreground">Computer Science Department - 2 hours ago</p>
+              {recentActivity.length > 0 ? (
+                recentActivity.slice(0, 5).map((activity: any, index: number) => (
+                  <div key={index} className="flex items-center space-x-3 p-3 bg-accent/50 rounded-lg">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{activity.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.description} - {new Date(activity.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center space-x-3 p-3 bg-accent/50 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">No recent activity</p>
+                    <p className="text-xs text-muted-foreground">Activity will appear here as it occurs</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-3 p-3 bg-accent/50 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Academic Warning Issued</p>
-                  <p className="text-xs text-muted-foreground">3 students notified - 4 hours ago</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 p-3 bg-accent/50 rounded-lg">
-                <Users className="h-5 w-5 text-purple-600" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Meeting Minutes Signed</p>
-                  <p className="text-xs text-muted-foreground">Faculty Council Meeting - Yesterday</p>
-                </div>
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>

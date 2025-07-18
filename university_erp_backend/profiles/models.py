@@ -1,14 +1,21 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth import authenticate
+from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class User(AbstractUser):
     ROLE_CHOICES = (
         ('admin', 'Admin'),
         ('dean', 'Dean'),
         ('coordinator', 'Coordinator'),
-        ('teacher', 'Teacher'), 
+        ('teacher', 'Teacher'),
+        ('student', 'Student'),  # <-- ADD THIS LINE
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='coordinator')
+    department = models.CharField(max_length=255, null=True, blank=True)  # Added department field
+    email = models.EmailField(unique=True, blank=False, null=False)  # Enforce unique email
     # Custom fields if needed
     
     groups = models.ManyToManyField(
@@ -66,7 +73,9 @@ class Meeting(models.Model):
     participants = models.JSONField(blank=True, null=True, default=list)
     minutes = models.TextField(blank=True, null=True)
     signedByDean = models.BooleanField(default=False)
-
+    department = models.CharField(max_length=255, null=True)
+    signature = models.TextField(blank=True, null=True)  # New field for dean's signature
+    
     def __str__(self):
         return f"{self.title} on {self.date} at {self.time}"
 
@@ -133,6 +142,21 @@ class AcademicDecision(models.Model):
     issued_by = models.ForeignKey('User', on_delete=models.CASCADE, related_name='issued_decisions')  # Dean
     issued_at = models.DateTimeField(auto_now_add=True)
     notes = models.TextField(blank=True, null=True)
+    gpa = models.CharField(max_length=20,null=True)
 
     def __str__(self):
         return f"{self.decision_type} for student ID {str(self.student_id)} by Dean ID {str(self.issued_by_id)}"
+
+class Student(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='student_profile')
+    gpa = models.FloatField(null=True, blank=True)
+    department = models.CharField(max_length=255, null=True, blank=True)
+    # Add any other student-specific fields here
+
+    def __str__(self):
+        return self.user.get_full_name() or self.user.username
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_student_profile(sender, instance, created, **kwargs):
+    if created and instance.role == 'student':
+        Student.objects.create(user=instance)

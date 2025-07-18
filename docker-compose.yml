@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: academic_erp
+      POSTGRES_USER: erpuser
+      POSTGRES_PASSWORD: erppassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    command: python university_erp_backend/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      DEBUG: '1'
+      DJANGO_DB_HOST: db
+      DJANGO_DB_PORT: 5432
+      DJANGO_DB_NAME: academic_erp
+      DJANGO_DB_USER: erpuser
+      DJANGO_DB_PASSWORD: erppassword
+    hostname: ypu.localhost  # This sets the container's hostname
+
+volumes:
+  postgres_data:
+
+# To use http://ypu.localhost:8000/ on your host machine, add this line to your /etc/hosts (Linux/Mac) or C:\Windows\System32\drivers\etc\hosts (Windows):
+# 127.0.0.1 ypu.localhost 

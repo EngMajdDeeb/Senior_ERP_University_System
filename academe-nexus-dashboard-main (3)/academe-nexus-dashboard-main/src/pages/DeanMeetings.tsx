@@ -8,76 +8,58 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Users, FileText, PenTool, CheckCircle, Clock, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useDeanMeetings, useUpdateMeeting } from "@/hooks/use-api";
 
 interface Meeting {
-  id: string;
+  id: string | number;
   title: string;
   date: string;
   time: string;
-  status: "scheduled" | "completed" | "cancelled";
+  status: "scheduled" | "completed" | "cancelled" | "upcoming";
   participants: string[];
   minutes?: string;
-  deanSigned: boolean;
-  department: string;
+  signedByDean: boolean;
+  department?: string;
+  location?: string;
+  description?: string;
+  attendees?: number;
+  agenda?: string;
+  signature?: string; // Added signature field
 }
 
 export default function DeanMeetings() {
   const { toast } = useToast();
-  const [meetings, setMeetings] = useState<Meeting[]>([
-    {
-      id: "1",
-      title: "Faculty Council Meeting",
-      date: "2024-01-20",
-      time: "10:00 AM",
-      status: "completed",
-      participants: ["Dr. Smith", "Dr. Johnson", "Dr. Brown", "Dean"],
-      minutes: "Discussed curriculum updates for the new semester. Approved budget allocation for new lab equipment. Reviewed student performance metrics for Q4. Next meeting scheduled for February 15th.",
-      deanSigned: false,
-      department: "General"
-    },
-    {
-      id: "2",
-      title: "CS Department Review",
-      date: "2024-01-18",
-      time: "2:00 PM",
-      status: "completed",
-      participants: ["Dr. Davis", "Dr. Wilson", "Dean"],
-      minutes: "Reviewed computer science program outcomes. Discussed new course proposals for advanced AI and machine learning. Approved hiring for 2 new faculty positions.",
-      deanSigned: true,
-      department: "Computer Science"
-    },
-    {
-      id: "3",
-      title: "Budget Planning Session",
-      date: "2024-01-25",
-      time: "9:00 AM",
-      status: "scheduled",
-      participants: ["Finance Director", "Department Heads", "Dean"],
-      deanSigned: false,
-      department: "General"
-    },
-    {
-      id: "4",
-      title: "Engineering Accreditation Review",
-      date: "2024-01-16",
-      time: "11:00 AM",
-      status: "completed",
-      participants: ["Dr. Anderson", "Dr. Taylor", "Dean"],
-      minutes: "Reviewed accreditation requirements and compliance status. Prepared documentation for upcoming ABET visit. Assigned action items to department heads.",
-      deanSigned: false,
-      department: "Engineering"
-    }
-  ]);
+  const { data: meetingsData, isLoading } = useDeanMeetings();
+  const updateMeetingMutation = useUpdateMeeting();
+
+  // Ensure data is always an array and handle different API response formats
+  const meetings = Array.isArray(meetingsData) ? meetingsData : 
+                  (meetingsData as any)?.results ? (meetingsData as any).results : 
+                  (meetingsData as any)?.data ? (meetingsData as any).data : [];
 
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [showMinutesModal, setShowMinutesModal] = useState(false);
 
-  const relevantMeetings = meetings.filter(meeting => 
-    meeting.participants.includes("Dean") || meeting.department === "General"
-  );
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <DeanNavbar />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading meetings...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const pendingSignature = relevantMeetings.filter(meeting => 
-    meeting.status === "completed" && meeting.minutes && !meeting.deanSigned
+  const relevantMeetings = meetings;
+
+  const pendingSignature = relevantMeetings.filter((meeting: any) => 
+    meeting.status === "completed" && meeting.minutes && !meeting.signedByDean
   );
 
   const handleViewMinutes = (meeting: Meeting) => {
@@ -85,19 +67,16 @@ export default function DeanMeetings() {
     setShowMinutesModal(true);
   };
 
-  const handleSignMeeting = (meetingId: string) => {
-    setMeetings(prev => prev.map(meeting =>
-      meeting.id === meetingId
-        ? { ...meeting, deanSigned: true }
-        : meeting
-    ));
-
-    toast({
-      title: "Meeting Signed",
-      description: "Meeting minutes have been officially signed by the Dean.",
-    });
-
-    setShowMinutesModal(false);
+  const handleSignMeeting = (meetingId: string | number) => {
+    updateMeetingMutation.mutate(
+      { id: typeof meetingId === 'string' ? parseInt(meetingId) : meetingId, data: { signedByDean: true } },
+      {
+        onSuccess: (data) => {
+          setSelectedMeeting((prev) => prev ? { ...prev, ...data } : prev);
+        },
+      }
+    );
+    // setShowMinutesModal(false); // Remove this line so modal stays open and updates
   };
 
   const getStatusBadge = (status: string) => {
@@ -155,7 +134,7 @@ export default function DeanMeetings() {
                 <div>
                   <p className="text-sm text-muted-foreground">Signed Meetings</p>
                   <p className="text-2xl font-bold text-green-600">
-                    {relevantMeetings.filter(m => m.deanSigned).length}
+                    {relevantMeetings.filter((m: any) => m.signedByDean).length}
                   </p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-600" />
@@ -216,7 +195,9 @@ export default function DeanMeetings() {
                       <td className="p-3">{getStatusBadge(meeting.status)}</td>
                       <td className="p-3">
                         {meeting.status === "completed" && meeting.minutes ? (
-                          meeting.deanSigned ? (
+                          meeting.signature ? (
+                            <span className="text-green-800 font-semibold">{meeting.signature}</span>
+                          ) : meeting.signedByDean ? (
                             <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Signed
@@ -233,14 +214,22 @@ export default function DeanMeetings() {
                       </td>
                       <td className="p-3">
                         <div className="flex space-x-2">
-                          {meeting.status === "completed" && meeting.minutes && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewMinutes(meeting)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                          {meeting.status === "completed" && meeting.minutes && !meeting.signedByDean && (
                             <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => handleViewMinutes(meeting)}
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleSignMeeting(meeting.id)}
                             >
-                              <FileText className="h-4 w-4 mr-1" />
-                              Minutes
+                              <PenTool className="h-4 w-4 mr-1" />
+                              Sign as Dean
                             </Button>
                           )}
                         </div>
@@ -277,7 +266,7 @@ export default function DeanMeetings() {
                 </div>
               </div>
 
-              {selectedMeeting && !selectedMeeting.deanSigned && (
+              {selectedMeeting && !selectedMeeting.signedByDean && (
                 <div className="flex space-x-2 pt-4 border-t">
                   <Button 
                     onClick={() => handleSignMeeting(selectedMeeting.id)}
@@ -296,10 +285,16 @@ export default function DeanMeetings() {
                 </div>
               )}
 
-              {selectedMeeting?.deanSigned && (
+              {selectedMeeting?.signedByDean && (
                 <div className="flex items-center justify-center p-4 bg-green-50 rounded-lg border border-green-200">
                   <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
                   <span className="text-green-800 font-medium">Officially Signed by Dean</span>
+                  {selectedMeeting.signature && (
+                    <div className="ml-4">
+                      <Label>Signature:</Label>
+                      <span className="text-green-800 font-semibold ml-2">{selectedMeeting.signature}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

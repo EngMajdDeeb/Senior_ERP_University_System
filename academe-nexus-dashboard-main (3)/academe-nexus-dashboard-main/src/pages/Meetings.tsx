@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar, Clock, Users, Plus, FileText, Edit, Mail, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useMeetings, useCreateMeeting, useUpdateMeeting, useDeleteMeeting } from "@/hooks/use-api";
+import { useQuery } from '@tanstack/react-query';
+import { apiService } from '@/lib/api';
 
 interface Meeting {
   id: number;
@@ -27,46 +30,15 @@ interface Meeting {
 
 export default function Meetings() {
   const { toast } = useToast();
-  const [meetings, setMeetings] = useState<Meeting[]>([
-    {
-      id: 1,
-      title: "Academic Planning Committee",
-      date: "2024-01-15",
-      time: "14:00 - 16:00",
-      attendees: 12,
-      status: "upcoming",
-      description: "Quarterly review of academic programs and curriculum updates",
-      location: "Conference Room A",
-      agenda: "1. Review current programs\n2. Discuss new initiatives\n3. Budget allocation",
-      participants: ["Dr. Smith", "Prof. Johnson", "Dean Wilson"],
-    },
-    {
-      id: 2,
-      title: "Faculty Development Workshop",
-      date: "2024-01-20",
-      time: "10:00 - 12:00",
-      attendees: 25,
-      status: "upcoming",
-      description: "Professional development session on new teaching methodologies",
-      location: "Auditorium B",
-      agenda: "1. Modern teaching techniques\n2. Technology integration\n3. Student engagement strategies",
-      participants: ["Prof. Davis", "Dr. Brown", "Prof. Wilson"],
-    },
-    {
-      id: 3,
-      title: "Budget Review Meeting",
-      date: "2024-01-10",
-      time: "09:00 - 11:00",
-      attendees: 8,
-      status: "completed",
-      description: "Annual budget review and allocation discussion",
-      location: "Boardroom",
-      agenda: "1. Previous year review\n2. Current budget status\n3. Next year planning",
-      participants: ["Dean Wilson", "Finance Director", "Department Heads"],
-      minutes: "Meeting proceeded as planned. Budget approved for next year with 5% increase in research funding.",
-      signedByDean: true,
-    },
-  ]);
+  const { data: meetingsData, isLoading } = useMeetings();
+  const createMeetingMutation = useCreateMeeting();
+  const updateMeetingMutation = useUpdateMeeting();
+  const deleteMeetingMutation = useDeleteMeeting();
+
+  // Ensure data is always an array and handle different API response formats
+  const meetings = Array.isArray(meetingsData) ? meetingsData : 
+                  (meetingsData as any)?.results ? (meetingsData as any).results : 
+                  (meetingsData as any)?.data ? (meetingsData as any).data : [];
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
@@ -82,7 +54,15 @@ export default function Meetings() {
     status: "upcoming",
   });
 
-  const participantOptions = ["Dr. Smith", "Prof. Johnson", "Dr. Brown", "Prof. Wilson", "Dr. Davis", "Dean Wilson", "Finance Director"];
+  // Fetch users for participant options
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiService.getUsers(),
+  });
+  const participantOptions = users.map((u: any) => {
+    const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+    return name ? `${name} (${u.username})` : u.username;
+  });
 
   const handleSaveMeeting = () => {
     if (!newMeeting.title || !newMeeting.date || !newMeeting.time) {
@@ -94,19 +74,21 @@ export default function Meetings() {
       return;
     }
 
+    const meetingData = {
+      title: newMeeting.title,
+      date: newMeeting.date,
+      time: newMeeting.time,
+      description: newMeeting.description,
+      location: newMeeting.location,
+      agenda: newMeeting.agenda,
+      participants: newMeeting.participants,
+      status: newMeeting.status || "upcoming",
+    };
+
     if (editingMeeting) {
-      setMeetings(meetings.map(m => m.id === editingMeeting.id ? { ...editingMeeting, ...newMeeting } : m));
-      toast({
-        title: "Success",
-        description: "Meeting updated successfully"
-      });
+      updateMeetingMutation.mutate({ id: editingMeeting.id, data: meetingData });
     } else {
-      const id = Math.max(...meetings.map(m => m.id)) + 1;
-      setMeetings([...meetings, { ...newMeeting, id, attendees: newMeeting.participants?.length || 0 } as Meeting]);
-      toast({
-        title: "Success",
-        description: "Meeting scheduled successfully"
-      });
+      createMeetingMutation.mutate(meetingData);
     }
 
     setIsDialogOpen(false);
@@ -131,25 +113,17 @@ export default function Meetings() {
   };
 
   const handleSaveMinutes = (meetingId: number, minutes: string) => {
-    setMeetings(meetings.map(m => 
-      m.id === meetingId 
-        ? { ...m, minutes, status: "completed" as const }
-        : m
-    ));
-    setMinutesDialog(null);
-    toast({
-      title: "Success",
-      description: "Meeting minutes saved successfully"
+    updateMeetingMutation.mutate({ 
+      id: meetingId, 
+      data: { minutes, status: "completed" } 
     });
+    setMinutesDialog(null);
   };
 
   const handleSignByDean = (meetingId: number) => {
-    setMeetings(meetings.map(m => 
-      m.id === meetingId ? { ...m, signedByDean: true } : m
-    ));
-    toast({
-      title: "Success",
-      description: "Minutes signed by Dean"
+    updateMeetingMutation.mutate({ 
+      id: meetingId, 
+      data: { signedByDean: true } 
     });
   };
 
@@ -163,6 +137,22 @@ export default function Meetings() {
         return "bg-gray-100 text-gray-800";
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading meetings...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
